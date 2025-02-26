@@ -1,16 +1,17 @@
 %% Define circuit parameters
 R1 = 0.072;           % Resistance in Ohms
-L1 = 24e-6;         % Inductance in Henry
-C1 = 0.1e-6;         % Capacitance in Farads
-L2 = 24e-6;         % Inductance in Henry for branch 2
-C2 = 100e-9;         % Capacitance in Farads for branch 2
-M  = 1.2e-5;       % Mutual inductance in Henry
-V1 = 5;            % Source voltage (amplitude)
+L1 = 24e-6;           % Inductance in Henry
+C1 = 0.1e-6;          % Capacitance in Farads
+L2 = 24e-6;           % Inductance in Henry for branch 2
+C2 = 100e-9;          % Capacitance in Farads for branch 2
+M  = 1.2e-5;          % Mutual inductance in Henry
+V1 = 5;               % Source voltage (amplitude)
 
-%% Define frequency and R2 ranges
-freq = linspace(1e3, 200e3, 500);   % Frequency from 1 kHz to 200 kHz
-R2_vals = linspace(1, 100, 200);      % R2 (output resistance) values from 1 Ohm to 100 Ohm
-
+%% Define frequency and R2 ranges on a logarithmic scale
+% Frequency from 50 kHz to 250 kHz:
+freq = logspace(log10(50e3), log10(250e3), 500);   
+% Output resistance (R2) values from 1 Ohm to 100 Ohm:
+R2_vals = logspace(0, log10(100), 200);  
 
 %% Preallocate matrix for power computed at each (R2, freq)
 P_R2 = zeros(length(R2_vals), length(freq));
@@ -37,11 +38,18 @@ for i = 1:length(R2_vals)
     end
 end
 
-%% Create a 3D surface plot
+%% Create a 3D surface plot with linear power and logarithmic frequency and resistance axes
 figure;
 surf(freq, R2_vals, P_R2, 'EdgeColor', 'none');
-xlabel('Frequency (Hz)');
-ylabel('Output Resistance (Ω)');
+set(gca, 'XScale', 'log', 'YScale', 'log');  % Set frequency and resistance axes to log scale
+
+% Adjust axis labels
+xlabel('Frequency (log10(Hz))');
+ylabel('Output Resistance (log10(Ω))');
 zlabel('Output Power (W)');
+
+% Limit frequency axis to 50 kHz - 250 kHz
+xlim([50e3, 250e3]);
+
 colorbar;
-view(135,30);  % Adjust the view angle for better visualisation
+view(135,30);  % Adjust the view angle for better visualization
