@@ -21,6 +21,13 @@ DigitalOut sck(LTC_SCK);  // Serial Clock
 DigitalOut sen(LTC_SEN);  // Serial Enable
 
 // -------------------- Manual SPI Send --------------------
+/*
+ * Function name: send_spi_word_manual
+ * Function brief: Sends a 16-bit word manually via SPI by bit-banging.
+ * Function parameters: 
+ *   - uint16_t word: The 16-bit word to be sent over SPI.
+ * Function returns: void.
+ */
 void send_spi_word_manual(uint16_t word) {
     sen.write(0);  // Pull SEN low to start the transaction
     wait_us(1);
@@ -38,6 +45,13 @@ void send_spi_word_manual(uint16_t word) {
 }
 
 // -------------------- LTC Word-Building Functions --------------------
+/*
+ * Function name: create_oct
+ * Function brief: Calculates the octave value for a given frequency using a logarithmic formula.
+ * Function parameters:
+ *   - double freq: The input frequency.
+ * Function returns: uint16_t representing the octave value.
+ */
 uint16_t create_oct(double freq) {
     // Prevent log(0):
     if (freq <= 0) {
@@ -48,6 +62,14 @@ uint16_t create_oct(double freq) {
     return octave;
 }
 
+/*
+ * Function name: create_daq
+ * Function brief: Calculates the DAC value based on the frequency and octave.
+ * Function parameters:
+ *   - double freq: The input frequency.
+ *   - uint8_t oct: The octave value.
+ * Function returns: uint16_t representing the DAC value.
+ */
 uint16_t create_daq(double freq, uint8_t oct) {
     if (freq <= 0) {
         return 0;
@@ -57,6 +79,15 @@ uint16_t create_daq(double freq, uint8_t oct) {
     return daq;
 }
 
+/*
+ * Function name: create_spi_word
+ * Function brief: Combines the octave, DAC, and configuration bits into a single 16-bit word.
+ * Function parameters:
+ *   - uint8_t oct: The 4-bit octave value.
+ *   - uint16_t dac: The 10-bit DAC value.
+ *   - uint8_t cnf: The 2-bit configuration value.
+ * Function returns: uint16_t representing the combined 16-bit word.
+ */
 uint16_t create_spi_word(uint8_t oct, uint16_t dac, uint8_t cnf) {
     // Pack bits: [OCT:4 | DAC:10 | CNF:2]
     oct &= 0x0F;    // 4 bits
@@ -65,7 +96,13 @@ uint16_t create_spi_word(uint8_t oct, uint16_t dac, uint8_t cnf) {
     uint16_t whole_word = (oct << 12) | (dac << 2) | cnf;
     return whole_word;
 }
-
+/*
+ * Function name: send_spi_word
+ * Function brief: Computes the necessary parameters from a frequency and sends the corresponding SPI word.
+ * Function parameters:
+ *   - double aFreq: The frequency to be sent to the LTC oscillator.
+ * Function returns: void.
+ */
 void send_spi_word(double aFreq) {
     uint8_t  anOct     = create_oct(aFreq);
     uint16_t aDac      = create_daq(aFreq, anOct);
@@ -83,61 +120,99 @@ void send_spi_word(double aFreq) {
 }
 
 // -------------------- Potentiometer Classes --------------------
+
+// This class is based on the EEEN20011 example program 3. Author: Dr P N Green.
+
+/*
+ * Class name: Potentiometer
+ * Class brief: Represents a potentiometer interface that reads analog input values, allowing conversion to voltage and normalised values.
+ */
 class Potentiometer {
 private:
-    AnalogIn inputSignal;
-    float    VDD;
-    float    currentSampleNorm;
-    float    currentSampleVolts;
+    AnalogIn inputSignal;                                                 // Analog input pin for reading the potentiometer signal.
+    float    VDD;                                                         // Supply voltage (VDD) for scaling the analog reading.
+    float    currentSampleNorm;                                           // Holds the most recent normalised sample (range: 0.0 to 1.0)
+    float    currentSampleVolts;                                          // Holds the most recent sample converted to voltage.
 
 public:
-    Potentiometer(PinName pin, float v) : inputSignal(pin), VDD(v) {}
-
+    Potentiometer(PinName pin, float v) : inputSignal(pin), VDD(v) {}    // Constructor to initialise the potentiometer with the given analog pin and supply voltage.
+    /*
+     * Function name: amplitudeVolts
+     * Function brief: Reads the current amplitude in volts from the potentiometer.
+     * Function parameters: None.
+     * Function returns: float representing the amplitude in volts.
+     */
     float amplitudeVolts(void) {
         return (inputSignal.read() * VDD);
     }
-
+    /*
+     * Function name: amplitudeNorm
+     * Function brief: Reads the normalized amplitude (0.0 to 1.0) from the potentiometer.
+     * Function parameters: None.
+     * Function returns: float representing the normalized amplitude.
+     */
     float amplitudeNorm(void) {
         return inputSignal.read();
     }
-
+    /*
+     * Function name: sample
+     * Function brief: Samples the current analog input and stores both normalized and voltage values.
+     * Function parameters: None.
+     * Function returns: void.
+     */
     void sample(void) {
         currentSampleNorm  = inputSignal.read();
         currentSampleVolts = currentSampleNorm * VDD;
     }
-
+    /*
+     * Function name: getCurrentSampleVolts
+     * Function brief: Retrieves the last sampled voltage value.
+     * Function parameters: None.
+     * Function returns: float representing the voltage value of the last sample.
+     */
     float getCurrentSampleVolts(void) {
         return currentSampleVolts;
     }
-
+    /*
+     * Function name: getCurrentSampleNorm
+     * Function brief: Retrieves the last sampled normalized value.
+     * Function parameters: None.
+     * Function returns: float representing the normalized value of the last sample.
+     */
     float getCurrentSampleNorm(void) {
         return currentSampleNorm;
     }
 };
 
+/*
+ * Class name: SamplingPotentiometer
+ * Class brief: Extends the Potentiometer class to add periodic sampling using a Ticker.
+ * Class parameters: None.
+ * Class returns: Not applicable.
+ */
 class SamplingPotentiometer : public Potentiometer {
 private:
-    float  samplingFrequency;
-    float  samplingPeriod;
-    Ticker sampler;
+    float  samplingFrequency;    // Sampling frequency in Hertz.
+    float  samplingPeriod;       // Sampling period in seconds, calculated as the inverse of the sampling frequency.
+    Ticker sampler;              // Ticker object used to schedule periodic sampling.
 
 public:
-    SamplingPotentiometer(PinName pin2, float voltage2, float freqsamp)
+    SamplingPotentiometer(PinName pin2, float voltage2, float freqsamp)    // Constructor to inititalise the sampling potentiometer, inheriting from the potentiometer class.
         : Potentiometer(pin2, voltage2),
           samplingFrequency(freqsamp) 
     {
-        samplingPeriod = 1.0f / samplingFrequency;
-        // Attach the base-class sample() method to the Ticker
-        sampler.attach(callback(this, &Potentiometer::sample), samplingPeriod);
+        samplingPeriod = 1.0f / samplingFrequency;                                // calculate the sampling period
+        
+        sampler.attach(callback(this, &Potentiometer::sample), samplingPeriod);    // Attach a ticker to periodically call the sample function
     }
 };
 
-// -------------------- Create Our Pot Object (Left Wheel) --------------------
-SamplingPotentiometer L_Wheel(A0, 3.3f, 200.0f);  // samples at 200 Hz
 
-// -------------------- MAIN --------------------
+SamplingPotentiometer L_Wheel(A0, 3.3f, 200.0f);  // create left potentiometer object to sample at 200 Hz        
+
+
 int main() {
-    // Initial LCD
+    // Initialise LCD
     lcd.cls();
 
     // Enable LTC oscillator hardware
@@ -149,19 +224,17 @@ int main() {
     oe.write(1);             // Turn LTC output on
     enableMosDriver.write(0); // 0 = enable MOSFET driver outputs
 
-    while(1) {
-        // Read the left pot's normalized value (0.0 to 1.0)
-        float potValue = L_Wheel.getCurrentSampleNorm();
+    while(1) {                                                // cyclic executive
+        
+        float potValue = L_Wheel.getCurrentSampleNorm();      // Read the left potentiometer's normalised value (0.0 to 1.0)
+      
+        float freq = FREQ_MIN + potValue * (FREQ_MAX - FREQ_MIN); // Map potValue to the frequency range [1 kHz, 500 kHz]
 
-        // Map potValue to the frequency range [1 kHz, 500 kHz]
-        // freq = 1000 + potValue * (500000 - 1000)
-        float freq = FREQ_MIN + potValue * (FREQ_MAX - FREQ_MIN);
+        
+        send_spi_word(freq);                                      // Send that frequency to the LTC
 
-        // Send that frequency to the LTC
-        send_spi_word(freq);
-
-        // Display pot readings
-        lcd.locate(0,9);
+        
+        lcd.locate(0,9);                                          // Display potentiometer's readings
         lcd.printf("Pot Norm: %.2f  ", potValue);
 
         wait(0.01); // small delay to avoid spamming
