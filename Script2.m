@@ -44,8 +44,8 @@ surf(freq, R2_vals, P_R2, 'EdgeColor', 'none');
 set(gca, 'XScale', 'log', 'YScale', 'log');  % Set frequency and resistance axes to log scale
 
 % Adjust axis labels
-xlabel('Frequency (log10(Hz))');
-ylabel('Output Resistance (log10(Ω))');
+xlabel('log10(Frequency) (Hz)');
+ylabel('log10(Output Resistance) (Ω)');
 zlabel('Output Power (W)');
 
 % Limit frequency axis to 50 kHz - 250 kHz
